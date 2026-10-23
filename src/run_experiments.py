@@ -258,7 +258,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
         ax.plot(s.grade, s.bias, "o-", color=C[i], label=env)
     ax.axhline(0, color="k", lw=0.8)
     ax.set_xlabel("실제 급"); ax.set_ylabel("평균 오차 (예측-실제)"); ax.legend()
-    ax.set_title("학습 환경(국내·국외)별 급별 예측 편향")
+    ax.set_title("학습 환경별 급별 평균 오차")
     fig.tight_layout(); fig.savefig(FIG / "fig8_env_bias.png", dpi=200); plt.close(fig)
 
     # Fig1 데이터 분포
@@ -282,7 +282,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
     for i, v in enumerate(g.QWK[::-1]):
         ax.text(v + 0.005, i, f"{v:.3f}", va="center", fontsize=9)
     ax.set_xlabel("QWK"); ax.set_xlim(0, 1); ax.legend(loc="lower right")
-    ax.set_title("모델별 문장 단위 급수 예측 성능 (5-fold CV)")
+    ax.set_title("모델별 QWK (5-fold CV)")
     fig.tight_layout(); fig.savefig(FIG / "fig2_models.png", dpi=200); plt.close(fig)
 
     # Fig3 혼동행렬
@@ -303,7 +303,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
         ax.plot(e3_df.k, e3_df.QWK, "o-", color=C[0], label="QWK")
         ax.plot(e3_df.k, e3_df["Adj±1"], "s--", color=C[2], label="±1 정확도")
         ax.set_xlabel("한 글에서 사용한 문장 수 k"); ax.set_ylim(0, 1); ax.legend()
-        ax.set_title("문장을 모을수록 급수 판단이 정확해지는가")
+        ax.set_title("글당 사용 문장 수에 따른 성능")
         fig.tight_layout(); fig.savefig(FIG / "fig4_k_sentences.png", dpi=200); plt.close(fig)
 
     # Fig5 L1 편향
@@ -312,7 +312,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
     ax.barh(e4_df.L1, e4_df.bias_grade_adj, color=cols)
     ax.axvline(0, color="k", lw=0.8)
     ax.set_xlabel("평균 예측 오차 (예측-실제, 급 분포 보정)")
-    ax.set_title("모어별 편향: + 과대평가 / − 과소평가")
+    ax.set_title("모어별 급 보정 평균 오차")
     fig.tight_layout(); fig.savefig(FIG / "fig5_l1_bias.png", dpi=200); plt.close(fig)
 
     # Fig7 처음 보는 모어
@@ -323,7 +323,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
     ax.plot(d.QWK_seen, yy, "o", color=C[0], label="학습에 같은 모어 포함")
     ax.plot(d.QWK_unseen, yy, "o", color=C[1], label="학습에서 그 모어 제외")
     ax.set_yticks(yy, d.L1); ax.set_xlabel("QWK"); ax.legend(loc="lower right", fontsize=8)
-    ax.set_title("처음 보는 모어의 학습자도 채점할 수 있는가")
+    ax.set_title("모어 포함 여부에 따른 QWK")
     fig.tight_layout(); fig.savefig(FIG / "fig7_unseen_l1.png", dpi=200); plt.close(fig)
 
     # Fig6 특징 상관
@@ -331,7 +331,7 @@ def make_figures(df, res_df, e3_df, e4_df, e5_df, cm, stats, e6_df, env_df):
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.barh(top.feature, top.rho, color=[C[0] if v > 0 else C[1] for v in top.rho])
     ax.axvline(0, color="k", lw=0.8); ax.set_xlabel("급수와의 Spearman ρ")
-    ax.set_title("급이 오를수록 달라지는 언어 특징 (상위 12)")
+    ax.set_title("급수와의 상관 (상위 12개 특징)")
     fig.tight_layout(); fig.savefig(FIG / "fig6_features.png", dpi=200); plt.close(fig)
 
 
