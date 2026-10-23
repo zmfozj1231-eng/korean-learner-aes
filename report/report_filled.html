@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Term Project 1 보고서</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  body { font-family: "Malgun Gothic", "맑은 고딕", sans-serif; font-size: 10pt; line-height: 1.62; color: #1a1a1a; background: #fff; }
+  h1 { font-size: 16pt; margin: 0 0 4px; line-height: 1.35; }
+  .sub { color: #555; font-size: 9.5pt; margin-bottom: 14px; }
+  h2 { font-size: 12.5pt; border-bottom: 1.5px solid #3b6ea8; padding-bottom: 3px; margin: 20px 0 8px; color: #1f3f66; }
+  h3 { font-size: 10.5pt; margin: 14px 0 4px; }
+  p { margin: 5px 0; text-align: justify; }
+  .abstract { background: #f3f6fa; border-left: 4px solid #3b6ea8; padding: 9px 13px; font-size: 9.5pt; }
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; margin: 6px 0 4px; }
+  th, td { border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 3px 6px; text-align: center; }
+  th { background: #eef2f7; }
+  td.l, th.l { text-align: left; }
+  tr.best td { font-weight: bold; background: #fbf6ec; }
+  .cap { font-size: 8.8pt; color: #444; margin: 2px 0 10px; }
+  figure { margin: 8px 0 10px; text-align: center; page-break-inside: avoid; }
+  figure img { max-width: 100%; }
+  figure.half { display: inline-block; width: 49%; vertical-align: top; margin: 4px 0; }
+  .row { display: flex; gap: 2%; page-break-inside: avoid; }
+  .row figure { flex: 1; }
+  .row figure img { max-height: 62mm; width: auto; }
+  table { page-break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; }
+  .key { background: #fff8ea; border: 1px solid #ecd9b0; padding: 7px 12px; margin: 8px 0; font-size: 9.5pt; }
+  ul { margin: 4px 0 4px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  .ref p { font-size: 8.8pt; padding-left: 18px; text-indent: -18px; margin: 2px 0; }
+  code { font-family: Consolas, monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0 3px; }
+  .ex td { font-size: 8.6pt; }
+</style>
+</head>
+<body>
+
+<h1>문장은 학습자의 '급'을 얼마나 말해 주는가?<br>
+<span style="font-size:12.5pt;font-weight:normal">— 한국어 학습자 말뭉치를 이용한 숙달도 자동 예측과 모어(L1)별 편향 분석</span></h1>
+<div class="sub">자연어처리 Term Project #1 (Automated Essay Scoring) · 이재영 (학번: ________) · 2026. 10. 23.</div>
+
+<h2>요약</h2>
+<div class="abstract">
+본 프로젝트는 국립국어원 한국어 학습자 말뭉치에서 학습자가 쓴 <b>문장만으로 작성자의 한국어 급수(1–6급)를 예측</b>하는 간접 자동 채점 문제를 다룬다.
+공개 검색 서비스에서 문어 28,971문장(18,909개 글, 75개 모어)을 급별로 균형 있게 무작위 표집하고, GPU 없이 재현 가능한 1세대형 언어 특징(Kiwi 형태소 분석 기반 25개)과 문자·형태소 n-gram을 Ridge 회귀로 비교했다.
+학습자 단위 5-fold 교차검증에서 n-gram 모델이 <b>QWK 0.642</b>(±1급 정확도 78.6%)로 가장 좋았고, 길이 baseline은 0.182, 언어 특징은 0.412였다.
+급이 오를수록 문장이 길어지고 조사·관형형 어미가 다양해지며, 특히 <b>종결 문체가 2급→3급(TOPIK I→II 경계)에서 해요체·합니다체에서 한다체로 급격히 바뀌었다.</b>
+몽골어·우즈베크어 학습자는 0.7–0.8급 과대평가되는 것처럼 보였지만 급 분포를 보정하면 대부분 사라져, 원인이 모어가 아니라 극단 급을 중간으로 끌어당기는 <b>'중간 점수 쏠림'</b>임을 확인했다.
+반면 해당 모어를 학습에서 빼면 QWK가 0.586에서 0.501로 떨어져, 작성자 집단이 바뀌면 채점기가 흔들린다는 AES의 일반화 문제가 모어 축에서도 재현되었다.
+또 같은 1급이라도 국외 학습자의 글은 국내보다 0.7급 더 높게 예측되었다. 이는 '급'이라는 라벨이 기관과 환경마다 다른 의미를 가지며, 이것이 성능의 상한을 정한다는 것을 보여 준다.
+</div>
+
+<h2>1. 서론</h2>
+<p>자동 글쓰기 평가(Automated Essay Scoring, AES)는 사람 채점자의 판단을 재현하는 기술이다. 표면 특징과 선형 회귀를 쓰던 1세대(Page, 1966; Attali &amp; Burstein, 2006), 신경망이 특징 설계를 대신한 2세대(Taghipour &amp; Ng, 2016; Dong et al., 2017), 루브릭과 LLM으로 점수와 근거를 함께 만드는 3세대(Mizumoto &amp; Eguchi, 2023; Lee et al., 2024)로 발전해 왔다. 그러나 어느 세대든 <b>학습 데이터와 다른 집단·주제의 글이 들어오면 성능이 무너진다</b>는 문제가 남아 있다(Li &amp; Ng, 2024).</p>
+<p>본 프로젝트에 배정된 <b>국립국어원 한국어 학습자 말뭉치</b>는 108개 언어권 성인 학습자의 글이고, 라벨은 글의 점수가 아니라 <b>작성자의 한국어 급수(1–6급)</b>다. 따라서 과제는 "이 글은 몇 점인가"가 아니라 "이 글을 쓴 사람은 몇 급인가"를 맞히는 간접 AES가 된다. 이 데이터에는 다른 AES 데이터에 없는 정보, 즉 <b>작성자의 모어(L1)와 학습 환경</b>이 있다. 같은 급이라도 모어마다 틀리는 지점과 문체가 다르므로, 이는 수업에서 다룬 "주제가 바뀌면 채점기가 무너진다"는 문제를 <b>"작성자 집단이 바뀌면 채점기가 무너지는가"</b>로 옮겨 볼 수 있는 좋은 시험대다.</p>
+<p>본 연구의 질문은 다음 네 가지다.</p>
+<ul>
+<li><b>RQ1.</b> 문장 하나로 학습자의 급을 얼마나 예측할 수 있는가? 어떤 표현 방식(표면 특징 vs. n-gram)이 유효한가?</li>
+<li><b>RQ2.</b> 급이 오를수록 학습자의 한국어는 구체적으로 어떻게 달라지는가?</li>
+<li><b>RQ3.</b> 예측기는 특정 모어·학습 환경의 학습자에게 체계적으로 유리하거나 불리한가?</li>
+<li><b>RQ4.</b> 학습 때 보지 못한 모어의 학습자에게도 일반화되는가?</li>
+</ul>
+
+<h2>2. 방법</h2>
+<h3>2.1 데이터 수집과 전처리</h3>
+<p>말뭉치 원본 파일은 국립국어원에 이용 신청했지만(접수번호 mfe-20261023-2) 승인에 1–2일이 걸려 마감 전에 받을 수 없었다. 그래서 같은 말뭉치의 공개 서비스인 <b>'한국어 학습자 말뭉치 나눔터' 원시 말뭉치 검색</b>을 이용했다. 검색 결과의 각 행은 (모어, 급수, 학습 환경, 표본 ID, 왼쪽 문맥 + 중심어 + 오른쪽 문맥)으로 구성되고, 문맥을 이어 붙이면 학습자가 쓴 한 문장이 된다.</p>
+<ul>
+<li><b>조건:</b> 문어(쓰기) 자료만 사용, 급수 1–6급 각각 별도로 검색 ('6급~'과 '정보 없음' 제외).</li>
+<li><b>검색어:</b> 급과 무관하게 자주 쓰이는 어절 18개 (예: <code>있습니다.</code>, <code>그래서</code>, <code>저는</code>, <code>때문에</code>, <code>한다.</code>).</li>
+<li><b>표집:</b> 검색어×급마다 결과 페이지(100행) 3개를 <b>무작위로</b> 추출. 처음에는 앞 페이지부터 수집했는데, 결과가 모어 가나다순으로 정렬되어 있어 러시아어·네덜란드어 등이 과대 표집되는 편향(러시아어 7,197문장 vs 중국어 238문장)을 발견해 무작위 페이지 추출로 바꾸었다.</li>
+<li><b>정제:</b> (표본 ID, 문장 번호) 기준 중복 제거, 5자 미만 문장 제거, 동일 문장 제거.</li>
+</ul>
+<p>최종 데이터는 <b>28,971문장, 18,909개 글(표본), 75개 모어</b>이고, 급별로 4,032–5,185문장으로 거의 균형이다(그림 1). 학습 환경은 국내 19,803문장, 국외 9,168문장이다.</p>
+<figure><img src="../results/figures/fig1_data.png" style="width:88%"><div class="cap">그림 1. 급수별 문장 수와 상위 8개 모어의 문장 수.</div></figure>
+
+<h3>2.2 모델</h3>
+<p>교수님의 권고에 따라 GPU와 유료 API 없이 노트북 CPU에서 재현 가능한 모델만 사용했다. 모두 1–6급을 실수값으로 예측하는 회귀이며, 평가할 때 반올림해 1–6 범위로 자른다.</p>
+<table>
+<tr><th class="l">모델</th><th class="l">입력 표현</th><th>회귀기</th></tr>
+<tr><td class="l">M0 길이 baseline</td><td class="l">어절 수, 글자 수</td><td>Ridge (α=1)</td></tr>
+<tr><td class="l">M1 언어 특징</td><td class="l">Kiwi 형태소 분석 기반 특징 25개: 길이, 형태소 TTR, 조사 종류 수, 연결어미(EC)·관형형 전성어미(ETM)·명사형 전성어미(ETN)·보조용언(VX)·의존명사(NNB) 비율, 종결 문체(합니다/해요/한다), 절 수, 어휘 희귀도 등</td><td>Ridge / HistGradientBoosting</td></tr>
+<tr><td class="l">M2 n-gram</td><td class="l">문자 1–3gram TF-IDF + 형태소/품사 1–2gram TF-IDF (min_df=2, sublinear tf)</td><td>Ridge (α=1)</td></tr>
+<tr><td class="l">M3 결합</td><td class="l">M2 + M1 (표준화)</td><td>Ridge (α=1)</td></tr>
+</table>
+<p class="cap">형태소 분석기: kiwipiepy 0.24.1. 라이브러리: scikit-learn 1.9.1, numpy 2.5.3, pandas 3.1.0, scipy 1.18.1, Python 3.12.10.</p>
+
+<h3>2.3 실험 설계와 평가</h3>
+<ul>
+<li><b>교차검증:</b> 5-fold <b>GroupKFold</b>. 같은 글(표본)의 문장이 학습과 평가에 동시에 들어가지 않도록 했다. TF-IDF 사전과 표준화는 매 폴드 학습 데이터로만 다시 학습했다. 비교를 위해 문장 단위 무작위 KFold도 함께 보고한다.</li>
+<li><b>지표:</b> AES 표준 지표인 Quadratic Weighted Kappa(QWK), 정확도, ±1급 정확도(Adj±1), MAE, Spearman ρ.</li>
+<li><b>E3 문장→글:</b> 같은 글에서 문장 k개(k=1–4)의 예측을 평균했을 때 성능이 어떻게 변하는지 본다. 공정한 비교를 위해 문장이 4개 이상 수집된 같은 글 집합에서 k만 바꾸었고, 무작위 추출을 20회 반복해 평균했다.</li>
+<li><b>E4 편향:</b> 모어별 평균 오차(예측−실제)를 계산한다. 모어마다 급 분포가 다르므로 <b>급별 평균 오차를 전체 급 분포로 가중 평균한 '급 보정 편향'</b>을 함께 보고한다. 학습 환경(국내/국외)별 편향도 같은 방식으로 본다.</li>
+<li><b>E5 특징 분석:</b> 각 언어 특징과 급수의 Spearman 상관.</li>
+<li><b>E6 처음 보는 모어:</b> 표본이 150문장 이상인 15개 모어마다 그 모어를 학습에서 완전히 뺀 모델(leave-one-L1-out)과 E1 교차검증 예측을 비교한다. 같은 n-gram 특징으로 모어 자체를 분류하는 실험도 함께 했다(15개 모어, GroupKFold, 로지스틱 회귀).</li>
+</ul>
+<p>코드: <b>https://github.com/________/korean-learner-aes</b> — <code>src/collect.py</code>(수집), <code>src/features.py</code>(특징), <code>src/run_experiments.py</code>(실험 전체). 말뭉치 원문은 이용 약관에 따라 저장소에 포함하지 않았다.</p>
+
+<h2>3. 결과</h2>
+<h3>3.1 RQ1: 문장 하나로 급을 얼마나 맞히는가</h3>
+<table>
+<tr><th class="l">모델</th><th>분할</th><th>QWK</th><th>Acc</th><th>Adj±1</th><th>MAE</th><th>Spearman</th></tr>
+<tr><td class="l">길이 baseline (Ridge)</td><td>학습자 단위</td><td>0.182</td><td>0.192</td><td>0.570</td><td>1.333</td><td>0.380</td></tr>
+<tr><td class="l">언어 특징 25개 (Ridge)</td><td>학습자 단위</td><td>0.401</td><td>0.233</td><td>0.675</td><td>1.191</td><td>0.506</td></tr>
+<tr><td class="l">언어 특징 25개 (GBM)</td><td>학습자 단위</td><td>0.412</td><td>0.234</td><td>0.686</td><td>1.172</td><td>0.520</td></tr>
+<tr class="best"><td class="l">문자+형태소 n-gram (Ridge)</td><td>학습자 단위</td><td>0.642</td><td>0.346</td><td>0.786</td><td>0.960</td><td>0.687</td></tr>
+<tr><td class="l">n-gram + 언어 특징 (Ridge)</td><td>학습자 단위</td><td>0.642</td><td>0.345</td><td>0.785</td><td>0.960</td><td>0.687</td></tr>
+<tr><td class="l">언어 특징 25개 (Ridge)</td><td>무작위(문장)</td><td>0.401</td><td>0.233</td><td>0.675</td><td>1.192</td><td>0.506</td></tr>
+<tr><td class="l">문자+형태소 n-gram (Ridge)</td><td>무작위(문장)</td><td>0.651</td><td>0.349</td><td>0.791</td><td>0.948</td><td>0.696</td></tr>
+<tr><td class="l">n-gram + 언어 특징 (Ridge)</td><td>무작위(문장)</td><td>0.651</td><td>0.350</td><td>0.791</td><td>0.948</td><td>0.696</td></tr>
+</table>
+<p class="cap">표 1. 문장 단위 급수 예측 성능 (5-fold CV, 28,971문장). 굵은 행이 최고 성능.</p>
+<div class="row">
+<figure><img src="../results/figures/fig2_models.png"><div class="cap">그림 2. 모델별 QWK. 주황 마름모는 무작위 분할 결과.</div></figure>
+</div>
+<p><b>표현 방식이 성능을 좌우했다.</b> 길이만 쓴 baseline(QWK 0.182)도 우연 수준보다는 높아, Page(1966) 이래 알려진 "길이가 점수를 상당 부분 설명한다"는 관찰이 학습자 데이터에서도 성립한다. 형태소 기반 특징 25개는 QWK를 0.40 수준으로 올렸고, 문자·형태소 n-gram은 <b>0.642</b>로 가장 높았다. n-gram에 언어 특징을 더해도 성능이 오르지 않았다(0.642). 언어 특징이 담는 정보(어미 종류, 문체, 길이)를 n-gram이 이미 포착하기 때문으로 보인다.</p>
+<p><b>정확한 급을 맞히는 것은 어렵지만 ±1급은 대체로 맞는다.</b> 정확도는 34.6%(6급 우연 수준 16.7%)지만 ±1급 정확도는 78.6%다. 혼동행렬(그림 3)을 보면 예측이 2–5급에 몰리고, 1급(27%)과 6급(18%)은 양 끝에서 안쪽으로 끌려간다. 수업에서 LLM-as-a-Judge의 단점으로 다룬 '중간 점수 쏠림'이 회귀 모델에서도 같은 모양으로 나타난다.</p>
+<p><b>분할 방식의 영향은 작았다.</b> 문장 단위 무작위 분할의 QWK가 학습자 단위 분할보다 0.009 높았다. 이번 표본은 글 하나에서 평균 1.5문장만 수집되어 같은 글의 문장이 양쪽에 들어갈 기회가 적었기 때문이다. 글 전체를 쓰는 원본 데이터라면 이 차이가 커질 것이므로, 학습자 단위 분할을 기본으로 삼았다.</p>
+
+<div class="row">
+<figure><img src="../results/figures/fig3_confusion.png"><div class="cap">그림 3. 최고 모델(M2)의 혼동행렬 (행 정규화).</div></figure>
+<figure><img src="../results/figures/fig4_k_sentences.png"><div class="cap">그림 4. 같은 글에서 문장 k개를 평균했을 때의 성능 (966개 글, 20회 평균).</div></figure>
+</div>
+<p><b>문장을 모을수록 판단이 좋아지지만 빠르게 포화된다.</b> 같은 966개 글에서 문장 1개만 보면 QWK 0.516, 4개를 평균하면 0.567(Spearman 0.589→0.696)로 올랐다. 다만 증가 폭은 k가 커질수록 줄었다. 같은 학습자의 문장은 서로 비슷한 정보를 담고 있고, 뒤에서 보듯 라벨 자체의 잡음이 상한을 만들기 때문이다.</p>
+
+<h3>3.2 RQ2: 급이 오르면 무엇이 달라지는가</h3>
+<div class="row">
+<figure style="flex:1.1"><img src="../results/figures/fig6_features.png"><div class="cap">그림 5. 급수와 Spearman 상관이 큰 특징 12개.</div></figure>
+<div style="flex:0.9">
+<table>
+<tr><th class="l">특징</th><th>1급</th><th>3급</th><th>6급</th></tr>
+<tr><td class="l">어절 수 <span style="color:#777">(ρ=+0.38)</span></td><td>7.3</td><td>9.81</td><td>13</td></tr>
+<tr><td class="l">조사 종류 수 <span style="color:#777">(ρ=+0.26)</span></td><td>2.56</td><td>3.13</td><td>3.92</td></tr>
+<tr><td class="l">절 수(EC+ETM+1) <span style="color:#777">(ρ=+0.34)</span></td><td>2.6</td><td>3.78</td><td>4.89</td></tr>
+<tr><td class="l">관형형 어미 비율 <span style="color:#777">(ρ=+0.19)</span></td><td>0.0314</td><td>0.0485</td><td>0.0571</td></tr>
+<tr><td class="l">해요체 종결 <span style="color:#777">(ρ=-0.23)</span></td><td>0.19</td><td>0.0411</td><td>0.0129</td></tr>
+<tr><td class="l">합니다체 종결 <span style="color:#777">(ρ=-0.26)</span></td><td>0.614</td><td>0.417</td><td>0.252</td></tr>
+<tr><td class="l">한다체 종결 <span style="color:#777">(ρ=+0.26)</span></td><td>0.116</td><td>0.38</td><td>0.474</td></tr>
+<tr><td class="l">형태소 TTR <span style="color:#777">(ρ=-0.26)</span></td><td>0.943</td><td>0.909</td><td>0.879</td></tr>
+</table>
+<p class="cap">표 2. 주요 특징의 급별 평균.</p>
+</div>
+</div>
+<p>그림 5와 표 2는 학습자의 한국어가 급에 따라 어떻게 '자라는지' 보여 준다.</p>
+<ul>
+<li><b>길이와 구조:</b> 어절 수(7.3→13.0), 절 수, 관형형 어미 비율이 꾸준히 증가한다. 1급은 "저는 몽골에 삽니다." 같은 단문, 6급은 관형절과 연결어미로 정보를 겹쳐 쌓는 복문을 쓴다.</li>
+<li><b>조사의 다양화:</b> 문장당 조사 종류가 2.6개에서 3.9개로 늘어난다(ρ=+0.26). 기본 격조사를 넘어 보조사와 복합 조사를 쓰기 시작한다는 뜻이다.</li>
+<li><b>문체 전환이 가장 극적이다.</b> 해요체 종결은 1급 19%→6급 1%, 한다체는 12%→47%로 바뀐다. 검색어 설계의 영향을 없애려고 중립 검색어(그래서, 저는, 때문에 등)로 모은 14,985문장만 다시 보았더니 경향이 더 뚜렷했다. 해요체는 36%→2%, 한다체는 7%→62%로 바뀌었고, <b>변화의 대부분이 2급→3급 사이에서 일어났다</b>(한다체 23%→57%). 이 경계는 TOPIK I(1–2급)과 TOPIK II(3–6급)의 경계와 일치한다. TOPIK II 쓰기 시험이 한다체를 요구하므로, 이 변화는 '언어 능력'과 함께 <b>시험과 교육과정이 만든 문체 규범</b>을 반영한다.</li>
+<li><b>뜻밖의 결과:</b> 어휘 희귀도(코퍼스 내 빈도 순위)는 급과 거의 상관이 없었고(ρ=+0.07), 형태소 TTR은 오히려 음의 상관이었다(ρ=−0.26). TTR은 문장이 길수록 기계적으로 낮아지므로, 문장 단위에서는 어휘 다양도가 길이 효과에 가려진다. 1세대 AES의 대표 특징인 어휘 다양도는 글 단위에서 써야 의미가 있다.</li>
+</ul>
+
+<h3>3.3 RQ3: 모어·학습 환경에 따른 편향</h3>
+<div class="row">
+<figure><img src="../results/figures/fig5_l1_bias.png"><div class="cap">그림 6. 모어별 급 보정 편향.</div></figure>
+<figure><img src="../results/figures/fig8_env_bias.png"><div class="cap">그림 7. 학습 환경별, 실제 급별 평균 오차.</div></figure>
+</div>
+<table>
+<tr><th class="l">모어</th><th>문장 수</th><th>평균 급</th><th>원시 편향</th><th>급 보정 편향</th><th>QWK</th></tr>
+<tr><td class="l">미얀마어</td><td>175</td><td>4.53</td><td>-1.07</td><td>-0.38</td><td>0.43</td></tr>
+<tr><td class="l">몽골어</td><td>1,848</td><td>2.46</td><td>+0.82</td><td>+0.07</td><td>0.43</td></tr>
+<tr><td class="l">우즈베크어</td><td>413</td><td>2.04</td><td>+0.71</td><td>-0.00</td><td>0.26</td></tr>
+<tr><td class="l">타이어</td><td>1,216</td><td>2.61</td><td>+0.66</td><td>+0.09</td><td>0.43</td></tr>
+<tr><td class="l">프랑스어</td><td>229</td><td>4.70</td><td>-0.51</td><td>-0.25</td><td>0.47</td></tr>
+<tr><td class="l">벵골어</td><td>1,535</td><td>2.00</td><td>+0.47</td><td>+0.28</td><td>0.06</td></tr>
+<tr><td class="l">러시아어</td><td>598</td><td>3.95</td><td>-0.43</td><td>+0.05</td><td>0.40</td></tr>
+</table>
+<p class="cap">표 3. 원시 편향이 큰 모어들의 원시 편향과 급 보정 편향 비교.</p>
+<p><b>'모어 편향'처럼 보인 것의 대부분은 착시였다.</b> 원시 편향만 보면 몽골어(+0.82급), 우즈베크어(+0.71), 타이어(+0.66) 학습자는 과대평가되고 미얀마어(−1.07)는 과소평가되는 것처럼 보인다. 그러나 이들 모어는 급 분포가 한쪽으로 치우쳐 있다(예: 우즈베크어 평균 2.0급, 벵골어 95%가 2급). 급별 오차를 전체 급 분포로 보정하면 몽골어 +0.07, 우즈베크어 0.00, 타이어 +0.09로 거의 사라진다. 즉 모델이 특정 모어를 차별한 것이 아니라, <b>낮은 급이 많은 집단은 위로, 높은 급이 많은 집단은 아래로 끌어당기는 중간 쏠림이 집단 수준에서 '편향'으로 보인 것</b>이다. 보정 후에도 미얀마어(−0.38)와 스페인어(−0.34)에는 과소평가가 남았지만, 표본이 각 200문장 내외라 결론을 내리기에는 이르다.</p>
+<p><b>학습 환경은 실제 차이를 만든다.</b> 같은 1급이라도 국외 학습자는 평균 +1.48급, 국내 학습자는 +0.76급으로 예측되고, 6급에서는 국외 -1.89, 국내 -1.38로 국외 쪽의 중간 쏠림이 더 강하다(그림 7). 국외 학습자의 급 라벨이 글의 특성과 덜 일관된다는 뜻이다. 오차가 가장 큰 사례(표 4)에도 "또한 생성형 AI인 챗봇은 고객 서비스를 향상하는 데 도움이 되고 있다."처럼 고급 문장을 쓴 국외 몽골어 '1급' 학습자가 여럿 있었다. 해외 기관의 반 배정 급이 국내 기관의 급, 혹은 TOPIK 급과 같은 척도가 아닐 가능성이 크다.</p>
+<table class="ex">
+<tr><th>실제</th><th>예측</th><th>모어</th><th class="l">문장</th></tr>
+<tr><td>1</td><td>6.0</td><td>몽골어</td><td class="l">또한 생성형 AI인 챗봇은 고객 서비스를 향상하는 데 도움이 되고 있다.</td></tr>
+<tr><td>1</td><td>5.9</td><td>우르두어</td><td class="l">인구 증가율이 높아지면서 자원 부족, 교육과 보건 서비스의 부족, 그리고 경제 발전의 어려움이 심각한 문제로 대두되고 있습니다.</td></tr>
+<tr><td>6</td><td>1.2</td><td>중국어</td><td class="l">나는 나의 집을 진짜 좋아한다.</td></tr>
+<tr><td>6</td><td>1.5</td><td>몽골어</td><td class="l">저는 몽골에 삽니다.</td></tr>
+<tr><td>6</td><td>1.4</td><td>베트남어</td><td class="l">나는 종아하는 한국에서 삽니다.</td></tr>
+</table>
+<p class="cap">표 4. 오차가 가장 큰 사례. 위 두 개는 라벨 잡음으로 보이는 사례, 아래 세 개는 '문장 하나'라는 입력 단위의 한계(고급 학습자도 쉬운 문장을 쓴다)를 보여 주는 사례다.</p>
+
+<h3>3.4 RQ4: 처음 보는 모어</h3>
+<figure><img src="../results/figures/fig7_unseen_l1.png" style="max-height:85mm"><div class="cap">그림 8. 같은 모어 학습자가 학습 데이터에 있을 때(파랑)와 없을 때(주황)의 QWK.</div></figure>
+<p><b>처음 보는 모어 앞에서 채점기는 흔들린다.</b> 15개 모어 전체(문장 수 가중 평균)에서 QWK가 0.586에서 0.501로 떨어졌다. 하락 폭이 큰 모어는 몽골어(0.43→0.31), 베트남어(0.63→0.51), 러시아어(0.40→0.29), 중국어(0.70→0.62)였다. 몽골어와 타이어는 학습에서 빠지면 과대평가가 각각 +0.82→+1.04, +0.66→+0.84로 커졌다. 반대로 영어, 스페인어, 스웨덴어처럼 표본이 적은 모어는 거의 영향이 없었는데, 원래부터 다른 모어의 데이터로 채점되고 있던 셈이기 때문이다.</p>
+<p>그렇다면 모델은 모어를 '알고' 있는가? 같은 n-gram 특징으로 15개 모어를 분류했더니 정확도가 <b>53.2%</b>(다수 클래스 28.2%, macro-F1 0.30)였다. 학습자의 문장에는 모어의 흔적(전이 오류, 선호 구문, 고유명사)이 뚜렷이 남아 있고, 급수 예측기는 이 흔적과 급의 결합 분포를 함께 학습한다. 새 모어가 들어오면 이 결합이 깨지면서 성능이 떨어진다. 수업에서 다룬 "주제가 조금만 바뀌어도 채점이 무너진다"는 현상은 <b>작성자 집단의 변화</b>에서도 같은 원리로 일어난다.</p>
+
+<h2>4. 논의</h2>
+<p><b>1. 이 데이터에서 AES는 '글'이 아니라 '사람'을 채점한다.</b> 라벨이 글의 질이 아니라 작성자의 소속 급이므로, 같은 6급 학습자도 쉬운 문장을 쓰면 낮게 예측된다(표 4). 이 오차는 모델의 실패라기보다 과제 정의의 한계다. 실제 교육 현장에서 쓰려면 글 단위 루브릭 점수가 있는 데이터(예: 국립국어원 글쓰기 채점 자료)로 보정하거나, 문장이 아니라 글 전체를 입력해야 한다. E3에서 문장을 모을수록 성능이 오른 것도 같은 방향을 가리킨다.</p>
+<p><b>2. '급'이라는 척도 자체가 통일되어 있지 않다.</b> 국외 학습자에게서 중간 쏠림이 더 강하게 나타난 것은 기관마다 급을 매기는 기준이 다르다는 증거다. 성능이 QWK 0.64 근처에서 멈추는 이유 중 상당 부분은 모델이 아니라 라벨 잡음일 가능성이 크다. 따라서 이 데이터로 모델을 비교할 때는 국내 기관 표본만 쓰거나 기관을 통제 변수로 두는 것이 공정하다.</p>
+<p><b>3. 편향 분석에는 기준이 필요하다.</b> 집단별 평균 오차만 보면 몽골어·우즈베크어 학습자가 '불리하다'고 잘못 결론 내리기 쉽다. 급 분포를 보정하자 편향의 대부분이 사라졌다. 공정성을 평가할 때는 같은 실제 점수끼리 비교해야 한다는 교훈이고, LLM 채점기의 집단 편향을 평가할 때도 그대로 적용된다.</p>
+<p><b>4. 데이터를 어떻게 뽑느냐가 결론을 바꾼다.</b> 처음에는 검색 결과의 앞 페이지만 수집했는데, 결과가 모어 가나다순으로 정렬되어 있어 러시아어 문장은 7,197개, 중국어는 238개가 모였다. 이 데이터로 얻은 1차 결과에서는 "중국어·일본어 학습자가 1급 이상 과소평가된다"는 그럴듯한 결론이 나왔지만, 무작위 표집 뒤에는 사라졌다. 교수님이 권한 '분포를 유지하는 샘플링'이 왜 중요한지 직접 확인한 셈이다.</p>
+<p><b>5. 무엇을 배웠나.</b> 형태소 분석 특징은 해석에, n-gram은 성능에 강했다. 성능만 원하면 n-gram 하나로 충분하지만, "급이 오르면 무엇이 변하는가"(문체 전환, 조사 다양화)라는 교육적으로 쓸모 있는 답은 해석 가능한 특징에서 나왔다. 3세대 LLM 채점기가 근거를 함께 내놓는 장점은 바로 이 부분을 노린 것이고, 2세대 모델의 성능과 1세대 특징의 해석력을 함께 얻는 방법이 실무에서 중요할 것이다.</p>
+<p><b>한계.</b> (1) 원본 말뭉치가 아니라 검색 서비스에서 얻은 문장 표본이므로 글 전체 구조(담화, 문단 전개)를 볼 수 없다. (2) 검색어 기반 표집이라 문장마다 특정 어절이 반드시 들어가 있고, 문체 비율 같은 절대 빈도는 원 분포와 다를 수 있다(중립 검색어 부분집합으로 일부 확인). (3) 비용 제약으로 BERT 파인튜닝이나 LLM 채점은 하지 않았다.</p>
+
+<h2>5. 결론</h2>
+<p>한국어 학습자 말뭉치의 문어 28,971문장으로 학습자의 급수를 예측한 결과, 문자·형태소 n-gram + Ridge가 CPU만으로 <b>QWK 0.642, ±1급 정확도 78.6%</b>를 얻었다. 주요 메시지는 세 가지다.</p>
+<ul>
+<li><b>학습자의 한국어는 길이와 구조뿐 아니라 '문체'로 자란다.</b> 2급→3급(TOPIK I→II)에서 해요체·합니다체가 한다체로 바뀌는 전환이 가장 강한 신호였다.</li>
+<li><b>모어 편향처럼 보이는 것은 대부분 중간 쏠림의 착시다.</b> 반면 처음 보는 모어에서는 성능이 실제로 떨어지고(QWK 0.59→0.50), 텍스트만으로 모어를 53% 맞힐 수 있을 만큼 모어의 흔적이 강하다.</li>
+<li><b>성능의 상한은 모델보다 라벨이 정한다.</b> 국외 학습자의 급은 글의 특성과 덜 일관되며, 이 데이터의 '급'은 글의 질이 아니라 기관이 매긴 소속 급이다.</li>
+</ul>
+<p><b>향후 방향.</b> (1) 승인된 원본 말뭉치로 글 단위 예측과 담화 특징 추가, (2) 오류 주석 말뭉치를 이용한 오류 유형별 특징(조사 오류, 어미 오류)과 모어별 전이 오류 분석, (3) 기관·환경을 통제한 라벨 정제, (4) 소형 한국어 인코더(KLUE-RoBERTa 등) 파인튜닝과 LLM zero-shot 채점의 모어별 편향 비교, (5) 모어 정보를 지우는 적대적 학습(adversarial debiasing)으로 처음 보는 모어에 대한 일반화 개선.</p>
+
+<h2>참고문헌</h2>
+<div class="ref">
+<p>Attali, Y., &amp; Burstein, J. (2006). Automated essay scoring with e-rater® V.2. <i>Journal of Technology, Learning, and Assessment, 4</i>(3).</p>
+<p>Dong, F., Zhang, Y., &amp; Yang, J. (2017). Attention-based recurrent convolutional neural network for automatic essay scoring. In <i>Proceedings of CoNLL 2017</i> (pp. 153–162). ACL.</p>
+<p>Hewlett Foundation. (2012). <i>The Hewlett Foundation: Automated Essay Scoring</i> [Data set]. Kaggle. https://www.kaggle.com/c/asap-aes</p>
+<p>Lee, S., Cai, Y., Meng, D., Wang, Z., &amp; Wu, Y. (2024). Unleashing large language models' proficiency in zero-shot essay scoring. In <i>Findings of EMNLP 2024</i> (pp. 181–198). ACL.</p>
+<p>Li, S., &amp; Ng, V. (2024). Automated essay scoring: A reflection on the state of the art. In <i>Proceedings of EMNLP 2024</i>. ACL.</p>
+<p>Mizumoto, A., &amp; Eguchi, M. (2023). Exploring the potential of using an AI language model for automated essay scoring. <i>Research Methods in Applied Linguistics, 2</i>(2), 100050.</p>
+<p>Page, E. B. (1966). The imminence of grading essays by computer. <i>Phi Delta Kappan, 47</i>(5), 238–243.</p>
+<p>Taghipour, K., &amp; Ng, H. T. (2016). A neural approach to automated essay scoring. In <i>Proceedings of EMNLP 2016</i> (pp. 1882–1891). ACL.</p>
+<p>국립국어원. 한국어 학습자 말뭉치 나눔터. https://kcorpus.korean.go.kr (2026. 10. 23. 접속)</p>
+<p>Kiwi: 지능형 한국어 형태소 분석기 (kiwipiepy 0.24.1). https://github.com/bab2min/kiwipiepy</p>
+<p>Pedregosa, F. et al. (2011). Scikit-learn: Machine learning in Python. <i>Journal of Machine Learning Research, 12</i>, 2825–2830.</p>
+</div>
+
+</body>
+</html>

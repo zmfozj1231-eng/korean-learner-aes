@@ -1,0 +1,6 @@
+data/
+__pycache__/
+*.pyc
+results/predictions.csv
+results/worst_errors.csv
+results_run.log
