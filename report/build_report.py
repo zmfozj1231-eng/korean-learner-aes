@@ -31,7 +31,7 @@ feat_rows = [("n_eojeol", "어절 수"), ("josa_types", "조사 종류 수"), ("
              ("r_ETM", "관형형 어미 비율"), ("end_haeyo", "해요체 종결"), ("end_hamnida", "합니다체 종결"),
              ("end_handa", "한다체 종결"), ("ttr_morph", "형태소 TTR")]
 t = t.replace("{{TABLE_FEAT}}", "\n".join(
-    f'<tr><td class="l">{name} <span style="color:#777">(ρ={e5.loc[k, "rho"]:+.2f})</span></td>'
+    f'<tr><td class="l">{name} <span>(ρ={e5.loc[k, "rho"]:+.2f})</span></td>'
     f'<td>{e5.loc[k, "mean_g1"]:.3g}</td><td>{e5.loc[k, "mean_g3"]:.3g}</td><td>{e5.loc[k, "mean_g6"]:.3g}</td></tr>'
     for k, name in feat_rows))
 
